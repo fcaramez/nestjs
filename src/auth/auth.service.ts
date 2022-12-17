@@ -3,10 +3,16 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuthDto } from './dto';
 import * as argon from 'argon2';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private jwt: JwtService,
+    private config: ConfigService,
+  ) {}
   async signup(dto: AuthDto) {
     const { email, password } = dto;
     const hashedPassword = await argon.hash(password);
@@ -23,10 +29,15 @@ export class AuthService {
         },
       });
 
+      const payload = await this.signToken(newUser.id, newUser.email);
+
+      console.log(payload);
+
       return {
         ...newUser,
+        authToken: payload,
+        message: 'Welcome back!',
         success: true,
-        message: 'Welcome, hope you enjoy your stay!',
       };
     } catch (err) {
       if (err instanceof PrismaClientKnownRequestError) {
@@ -58,7 +69,7 @@ export class AuthService {
       if (!user) {
         // noinspection ExceptionCaughtLocallyJS
         throw new ForbiddenException({
-          message: 'Your email is incorrect.',
+          message: 'Wrong Credentials',
           success: false,
           statusCode: 403,
         });
@@ -69,18 +80,35 @@ export class AuthService {
       if (!pwMatches) {
         // noinspection ExceptionCaughtLocallyJS
         throw new ForbiddenException({
-          message: 'Your password is incorrect.',
+          message: 'Wrong Credentials',
+          success: false,
+          statusCode: 403,
         });
       }
       delete user.hash;
 
+      const payload = await this.signToken(user.id, user.email);
+
       return {
         ...user,
+        authToken: payload,
         message: 'Welcome back!',
         success: true,
       };
     } catch (err) {
       throw err;
     }
+  }
+
+  signToken(userId: number, email: string): Promise<string> {
+    const payload = {
+      userId,
+      email,
+    };
+
+    return this.jwt.signAsync(payload, {
+      expiresIn: '12h',
+      secret: this.config.get('JWT_SECRET'),
+    });
   }
 }
