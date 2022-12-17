@@ -26,7 +26,7 @@ export class AuthService {
       return {
         ...newUser,
         success: true,
-        message: 'Success',
+        message: 'Welcome, hope you enjoy your stay!',
       };
     } catch (err) {
       if (err instanceof PrismaClientKnownRequestError) {
@@ -40,7 +40,47 @@ export class AuthService {
       throw err;
     }
   }
-  login() {
-    return 'I am Logging in';
+  async login(dto: AuthDto) {
+    const { email, password } = dto;
+
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: {
+          email,
+        },
+        select: {
+          email: true,
+          id: true,
+          hash: true,
+        },
+      });
+
+      if (!user) {
+        // noinspection ExceptionCaughtLocallyJS
+        throw new ForbiddenException({
+          message: 'Your email is incorrect.',
+          success: false,
+          statusCode: 403,
+        });
+      }
+
+      const pwMatches = await argon.verify(user.hash, password);
+
+      if (!pwMatches) {
+        // noinspection ExceptionCaughtLocallyJS
+        throw new ForbiddenException({
+          message: 'Your password is incorrect.',
+        });
+      }
+      delete user.hash;
+
+      return {
+        ...user,
+        message: 'Welcome back!',
+        success: true,
+      };
+    } catch (err) {
+      throw err;
+    }
   }
 }
