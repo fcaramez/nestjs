@@ -4,6 +4,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { PrismaService } from '../src/prisma/prisma.service';
 import * as pactum from 'pactum';
 import { faker } from '@faker-js/faker';
+import { AuthDto } from '../src/auth/dto';
 
 describe('App e2e', () => {
   let app: INestApplication;
@@ -29,25 +30,85 @@ describe('App e2e', () => {
   });
 
   describe('Auth', () => {
+    const email = faker.internet.email();
+    const password = faker.internet.password(12);
+    const dto: AuthDto = { email, password };
     describe('Signup', () => {
-      it('Should signup', () => {
-        const email = faker.internet.email();
-        const password = faker.internet.password(12);
-        const dto = { email, password };
+      it('Should throw exception if missing email', () => {
         return pactum
           .spec()
-          .post('/auth/signup ')
+          .post('/auth/signup')
+          .withBody({
+            password: faker.internet.password(12),
+          })
+          .expectStatus(400);
+      });
+      it('Should throw exception if missing password', () => {
+        return pactum
+          .spec()
+          .post('/auth/signup')
+          .withBody({
+            password: faker.internet.email(),
+          })
+          .expectStatus(400);
+      });
+      it('Should throw exception if no body', () => {
+        return pactum.spec().post('/auth/signup').expectStatus(400);
+      });
+      it('Should signup', () => {
+        return pactum
+          .spec()
+          .post('/auth/signup')
           .withBody(dto)
           .expectStatus(201);
       });
     });
     describe('Login', () => {
-      it.todo('Should login');
+      it('Should login', () => {
+        return pactum
+          .spec()
+          .post('/auth/login')
+          .withBody(dto)
+          .expectStatus(200)
+          .stores('userAt', 'authToken');
+      });
+      it('Should throw exception if missing email', () => {
+        return pactum
+          .spec()
+          .post('/auth/login')
+          .withBody({
+            password: faker.internet.password(12),
+          })
+          .expectStatus(400);
+      });
+      it('Should throw exception if missing password', () => {
+        return pactum
+          .spec()
+          .post('/auth/login')
+          .withBody({
+            password: faker.internet.email(),
+          })
+          .expectStatus(400);
+      });
+      it('Should throw exception if no body', () => {
+        return pactum.spec().post('/auth/login').expectStatus(400);
+      });
     });
   });
   describe('User', () => {
     describe('Get me', () => {
-      it.todo('Should get the User');
+      it('Should get the current User', () => {
+        return pactum
+          .spec()
+          .get('/users/me')
+          .withHeaders({
+            Authorization: 'Bearer $S{userAt}',
+          })
+          .expectStatus(200);
+      });
+      it('Should throw error if no Headers are sent', () => {
+        return pactum.spec().get('/users/me').expectStatus(401);
+      });
     });
     describe('Edit user', () => {
       it.todo('Should edit the User');
@@ -63,7 +124,7 @@ describe('App e2e', () => {
     describe('Get bookmark by id', () => {
       it.todo('Should get bookmark by id');
     });
-    describe('Edit bookmark', () => {
+    describe('Edit bookmark by id ', () => {
       it.todo('Should edit bookmark');
     });
     describe('Delete bookmark by id', () => {
