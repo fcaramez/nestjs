@@ -5,6 +5,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import * as pactum from 'pactum';
 import { faker } from '@faker-js/faker';
 import { AuthDto } from '../src/auth/dto';
+import { EditUserDto } from '../src/user/dto';
 
 describe('App e2e', () => {
   let app: INestApplication;
@@ -111,7 +112,24 @@ describe('App e2e', () => {
       });
     });
     describe('Edit user', () => {
-      it.todo('Should edit the User');
+      it('Should edit the User', () => {
+        const dto: EditUserDto = {
+          email: faker.internet.email(),
+          firstName: faker.name.firstName(),
+          lastName: faker.name.lastName(),
+        };
+
+        return pactum
+          .spec()
+          .patch('/users')
+          .withHeaders({
+            Authorization: 'Bearer $S{userAt}',
+          })
+          .withBody(dto)
+          .expectStatus(200)
+          .expectBodyContains(dto.firstName)
+          .expectBodyContains(dto.lastName);
+      });
     });
   });
   describe('Bookmarks', () => {
